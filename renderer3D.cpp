@@ -1,3 +1,5 @@
+//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
+
 #include <SDL2/SDL.h>
 #include <stdlib.h>
 #include <math.h>
@@ -10,6 +12,36 @@ typedef struct vector3D {
 	float y;
 	float z;
 } Vector3D;
+
+Vector3D crossProd(Vector3D v1, Vector3D v2) 
+{
+	Vector3D prod = {
+		v1.y * v2.z - v1.z * v2.y,
+		v1.z * v2.x - v1.x * v2.z,
+		v1.x * v2.y - v1.y * v2.x
+	};
+
+	return prod;
+}
+
+float vectorLength(Vector3D v) 
+{
+	return sqrtf(v.x * v.x + v.y * v.y + v.z * v.z);
+}
+
+Vector3D normalize(Vector3D v)
+{
+	float length = vectorLength(v);
+
+	Vector3D norm = {
+		v.x / length,
+		v.y / length,
+		v.z / length
+	};
+
+	return norm;
+}
+
 
 
 typedef struct triangle {
@@ -42,7 +74,7 @@ int screenWidth = 800;
 int screenHeight = 480;
 
 std::chrono::time_point<std::chrono::steady_clock> startTime, currentTime;
-
+Vector3D camera;
 
 float matProj[4][4] = { 0 };
 
@@ -187,6 +219,28 @@ void renderer3D_Render(void) {
 		triTranslated.vertices[0].z = triRotatedZX.vertices[0].z + 3.0f;
 		triTranslated.vertices[1].z = triRotatedZX.vertices[1].z + 3.0f;
 		triTranslated.vertices[2].z = triRotatedZX.vertices[2].z + 3.0f;
+
+
+        Vector3D normal, line1, line2;
+		line1.x = triTranslated.vertices[1].x - triTranslated.vertices[0].x;
+		line1.y = triTranslated.vertices[1].y - triTranslated.vertices[0].y;
+		line1.z = triTranslated.vertices[1].z - triTranslated.vertices[0].z;
+
+		line2.x = triTranslated.vertices[2].x - triTranslated.vertices[0].x;
+		line2.y = triTranslated.vertices[2].y - triTranslated.vertices[0].y;
+		line2.z = triTranslated.vertices[2].z - triTranslated.vertices[0].z;
+
+		normal = crossProd(line1, line2);
+        normal = normalize(normal);
+        
+
+        if (normal.x * (triTranslated.vertices[0].x - camera.x) +
+			normal.y * (triTranslated.vertices[0].y - camera.y) +
+			normal.z * (triTranslated.vertices[0].z - camera.z) >= 0.0f)
+		{
+			continue;
+		}
+		
 
 		// Project from 3D to 2D
 		triProjected.vertices[0] = MultiplyMatrixVector(triTranslated.vertices[0], matProj);
