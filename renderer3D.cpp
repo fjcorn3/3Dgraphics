@@ -1,4 +1,4 @@
-//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
+//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
 
 #include <SDL2/SDL.h>
 #include <stdlib.h>
@@ -6,6 +6,10 @@
 #include <chrono>
 #include <stdio.h>
 #include <vector>
+#include <fstream>
+#include <strstream>
+
+
 
 typedef struct vector3D {
 	float x;
@@ -43,14 +47,44 @@ Vector3D normalize(Vector3D v)
 }
 
 
-
 typedef struct triangle {
 	Vector3D vertices[3];
 } Triangle;
 
 std::vector<Triangle> mesh;
 
+std::vector<Triangle> readFromObjFile(std::string path) {
+	std::vector<Triangle> mesh;
+	std::vector<Vector3D> verts;
+	std::ifstream objFile(path);
 
+	while (!objFile.eof())
+	{
+		char line[128];
+		objFile.getline(line, 128);
+
+		std::strstream s;
+		s << line;
+
+		char junk;
+
+		if (line[0] == 'v')
+		{
+			Vector3D v;
+			s >> junk >> v.x >> v.y >> v.z;
+			verts.push_back(v);
+		}
+
+		if (line[0] == 'f')
+		{
+			int f[3];
+			s >> junk >> f[0] >> f[1] >> f[2];
+			mesh.push_back({ verts[f[0] - 1], verts[f[1] - 1], verts[f[2] - 1] });
+		}
+	}
+
+	return mesh;
+}
 Vector3D MultiplyMatrixVector(Vector3D i, float m[4][4]) {
 	Vector3D o;
 	
@@ -83,7 +117,7 @@ SDL_Renderer* renderer;
 SDL_Color Blue = {.r = 0, .g = 0, .b = 0xFF, .a = 0xFF};
 
 void DrawTriangle(Triangle triangle) {
-	SDL_SetRenderDrawColor(renderer, 0xFF, 0xFF, 0xFF, 0xFF);
+	SDL_SetRenderDrawColor(renderer, 0xFF, 0, 0, 0xFF);
 
 	SDL_RenderDrawLine(renderer, triangle.vertices[0].x, triangle.vertices[0].y,
 								 triangle.vertices[1].x, triangle.vertices[1].y);
@@ -93,42 +127,14 @@ void DrawTriangle(Triangle triangle) {
 								 triangle.vertices[0].x, triangle.vertices[0].y);
 }
 
-void renderer3D_Initialize(void) {
+void renderer3D_Initialize(std::string filePath) {
 	SDL_Init(SDL_INIT_EVERYTHING);
 	window = SDL_CreateWindow("3D Wireframe Renderer", SDL_WINDOWPOS_UNDEFINED, SDL_WINDOWPOS_UNDEFINED, screenWidth, screenHeight, SDL_WINDOW_FULLSCREEN);
 	renderer = SDL_CreateRenderer(window, -1, SDL_RENDERER_ACCELERATED);
 
 	SDL_ShowCursor(SDL_DISABLE);
 
-	
-	isRunning = true;
-    mesh = {
-
-		// SOUTH
-		{ 0.0f, 0.0f, 0.0f,    0.0f, 1.0f, 0.0f,    1.0f, 1.0f, 0.0f },
-		{ 0.0f, 0.0f, 0.0f,    1.0f, 1.0f, 0.0f,    1.0f, 0.0f, 0.0f },
-
-		// EAST                                                      
-		{ 1.0f, 0.0f, 0.0f,    1.0f, 1.0f, 0.0f,    1.0f, 1.0f, 1.0f },
-		{ 1.0f, 0.0f, 0.0f,    1.0f, 1.0f, 1.0f,    1.0f, 0.0f, 1.0f },
-
-		// NORTH                                                     
-		{ 1.0f, 0.0f, 1.0f,    1.0f, 1.0f, 1.0f,    0.0f, 1.0f, 1.0f },
-		{ 1.0f, 0.0f, 1.0f,    0.0f, 1.0f, 1.0f,    0.0f, 0.0f, 1.0f },
-
-		// WEST                                                      
-		{ 0.0f, 0.0f, 1.0f,    0.0f, 1.0f, 1.0f,    0.0f, 1.0f, 0.0f },
-		{ 0.0f, 0.0f, 1.0f,    0.0f, 1.0f, 0.0f,    0.0f, 0.0f, 0.0f },
-
-		// TOP                                                       
-		{ 0.0f, 1.0f, 0.0f,    0.0f, 1.0f, 1.0f,    1.0f, 1.0f, 1.0f },
-		{ 0.0f, 1.0f, 0.0f,    1.0f, 1.0f, 1.0f,    1.0f, 1.0f, 0.0f },
-
-		// BOTTOM                                                    
-		{ 1.0f, 0.0f, 1.0f,    0.0f, 0.0f, 1.0f,    0.0f, 0.0f, 0.0f },
-		{ 1.0f, 0.0f, 1.0f,    0.0f, 0.0f, 0.0f,    1.0f, 0.0f, 0.0f },
-
-		};
+	mesh = readFromObjFile(filePath);
 
 	// Projection Matrix
 	float fNear = 0.1f;
@@ -144,6 +150,7 @@ void renderer3D_Initialize(void) {
 	matProj[2][3] = 1.0f;
 	matProj[3][3] = 0.0f;
 
+	isRunning = true;
     startTime = std::chrono::steady_clock::now();
 }
 
@@ -178,20 +185,20 @@ void renderer3D_Render(void) {
 
     // DrawTriangle(tri);
 
-	float matRotZ[4][4] = { 0 };
+	// float matRotZ[4][4] = { 0 };
 	float matRotX[4][4] = { 0 };
-
+	// float matRotY[4][4] = { 0 };
 	
 	std::chrono::duration<float> elapsedTime = currentTime - startTime;
 	float fTheta = 1.2f * elapsedTime.count();
 
 	// Rotation Z
-	matRotZ[0][0] = cosf(fTheta);
-	matRotZ[0][1] = sinf(fTheta);
-	matRotZ[1][0] = -sinf(fTheta);
-	matRotZ[1][1] = cosf(fTheta);
-	matRotZ[2][2] = 1;
-	matRotZ[3][3] = 1;
+	// matRotZ[0][0] = cosf(fTheta);
+	// matRotZ[0][1] = sinf(fTheta);
+	// matRotZ[1][0] = -sinf(fTheta);
+	// matRotZ[1][1] = cosf(fTheta);
+	// matRotZ[2][2] = 1;
+	// matRotZ[3][3] = 1;
 
 	// Rotation X
 	matRotX[0][0] = 1;
@@ -201,24 +208,35 @@ void renderer3D_Render(void) {
 	matRotX[2][2] = cosf(fTheta * 0.5f);
 	matRotX[3][3] = 1;
 
-	Triangle triProjected, triTranslated, triRotatedZ, triRotatedZX;
+
+	// Rotation Y
+	// matRotY[0][0] = cosf(fTheta);
+	// matRotY[1][1] = 1;
+	// matRotY[2][2] = cosf(fTheta);
+	// matRotY[2][0] = sinf(fTheta);
+	// matRotY[0][2] = -sinf(fTheta);
+	// matRotY[3][3] = 1;
+
+	Triangle triProjected, triTranslated, triRotated;
 
 	for(auto &tri : mesh) {
 		// Rotate in Z-Axis
-		triRotatedZ.vertices[0] = MultiplyMatrixVector(tri.vertices[0], matRotZ);
-		triRotatedZ.vertices[1] = MultiplyMatrixVector(tri.vertices[1], matRotZ);
-		triRotatedZ.vertices[2] = MultiplyMatrixVector(tri.vertices[2], matRotZ);
+
+		//triangleRotateZ(Triangle triangle, float theta)
+		triRotated.vertices[0] = MultiplyMatrixVector(tri.vertices[0], matRotX);
+		triRotated.vertices[1] = MultiplyMatrixVector(tri.vertices[1], matRotX);
+		triRotated.vertices[2] = MultiplyMatrixVector(tri.vertices[2], matRotX);
 				
 		// Rotate in X-Axis
-		triRotatedZX.vertices[0] = MultiplyMatrixVector(triRotatedZ.vertices[0], matRotX);
-		triRotatedZX.vertices[1] = MultiplyMatrixVector(triRotatedZ.vertices[1], matRotX);
-		triRotatedZX.vertices[2] = MultiplyMatrixVector(triRotatedZ.vertices[2], matRotX);
+		// triRotated.vertices[0] = MultiplyMatrixVector(triRotated.vertices[0], matRotX);
+		// triRotated.vertices[1] = MultiplyMatrixVector(triRotated.vertices[1], matRotX);
+		// triRotated.vertices[2] = MultiplyMatrixVector(triRotated.vertices[2], matRotX);
 
 		// Offset into Screen
-		triTranslated = triRotatedZX;
-		triTranslated.vertices[0].z = triRotatedZX.vertices[0].z + 3.0f;
-		triTranslated.vertices[1].z = triRotatedZX.vertices[1].z + 3.0f;
-		triTranslated.vertices[2].z = triRotatedZX.vertices[2].z + 3.0f;
+		triTranslated = triRotated;
+		triTranslated.vertices[0].z = triRotated.vertices[0].z + 2.0f;
+		triTranslated.vertices[1].z = triRotated.vertices[1].z + 2.0f;
+		triTranslated.vertices[2].z = triRotated.vertices[2].z + 2.0f;
 
 
         Vector3D normal, line1, line2;
@@ -272,19 +290,21 @@ void renderer3D_Close(void) {
 }
 
 void renderer3D_Run(void) {
-	renderer3D_Initialize();
-
 	while(isRunning) {
 		renderer3D_Update();
 		renderer3D_Render();
 	}
-
-	renderer3D_Close();
-	exit(EXIT_SUCCESS);
 }
 
-int main() {
+int main(int argc, char* argv[]) {
+	if(argc != 2)
+		exit(EXIT_FAILURE);
+
+	renderer3D_Initialize(argv[1]);
 	renderer3D_Run();
+	renderer3D_Close();
+
+	exit(EXIT_SUCCESS);
 }
 
 
